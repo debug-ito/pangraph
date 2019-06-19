@@ -4,6 +4,7 @@ module GraphML (
 graphmlTests
 ) where
 
+import Data.List (permutations)
 import Test.HUnit
 
 import Pangraph
@@ -35,9 +36,13 @@ case1 =
 case2 :: Test
 case2 = TestCase $ assertEqual "GraphML Write case 1" (Just smallGraph) (parse . write $ smallGraph)
 
+combinations :: [a] -> [b] -> [(a, b)]
+combinations as bs = concat $ map (\a -> map (\b -> (a, b)) bs) as
+
 case3 :: Test
-case3 = TestCase $ assertEqual "GraphML Write case: without explicit id attributes" expected (write input)
+case3 = TestCase $ assertBool "GraphML Write case: without explicit id attributes" is_ok
   where
+    got = write input
     (Just input) = makePangraph vertices edges
     vertices = [ makeVertex "foo" [],
                  makeVertex "bar" [],
@@ -47,16 +52,29 @@ case3 = TestCase $ assertEqual "GraphML Write case: without explicit id attribut
               makeEdge ("bar", "buzz") [],
               makeEdge ("buzz", "foo") []
             ]
-    expected = mconcat
-               [ "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n",
-                 "<graphml xmlns=\"http://graphml.graphdrawing.org/xmlns\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">\n",
-                 "  <graph id=\"G\" edgedefault=\"undirected\">\n",
-                 "    <node id=\"foo\"/>\n",
-                 "    <node id=\"bar\"/>\n",
-                 "    <node id=\"buzz\"/>\n",
-                 "    <edge source=\"foo\" target=\"bar\"/>\n",
-                 "    <edge source=\"bar\" target=\"buzz\"/>\n",
-                 "    <edge source=\"buzz\" target=\"foo\"/>\n",
-                 "  </graph>\n",
-                 "</graphml>\n"
-               ]
+            
+    -- Order of nodes and edges are undefined. So we generate all
+    -- possible expectations.
+    
+    is_ok = any (== got) expectation_candidates
+    all_exp_nodes = permutations
+                    [ "    <node id=\"foo\"/>\n",
+                      "    <node id=\"bar\"/>\n",
+                      "    <node id=\"buzz\"/>\n"
+                    ]
+    all_exp_edges = permutations
+                    [ "    <edge source=\"foo\" target=\"bar\"/>\n",
+                      "    <edge source=\"bar\" target=\"buzz\"/>\n",
+                      "    <edge source=\"buzz\" target=\"foo\"/>\n"
+                    ]
+    expectation_candidates = map (uncurry makeExpectation) $ combinations all_exp_nodes all_exp_edges
+    makeExpectation exp_nodes exp_edges = 
+      mconcat
+      [ "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n",
+        "<graphml xmlns=\"http://graphml.graphdrawing.org/xmlns\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">\n",
+        "  <graph id=\"G\" edgedefault=\"undirected\">\n",
+        mconcat exp_nodes,
+        mconcat exp_edges,
+        "  </graph>\n",
+        "</graphml>\n"
+      ]
