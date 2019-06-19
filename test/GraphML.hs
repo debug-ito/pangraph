@@ -76,5 +76,5 @@ case3 = TestCase $ assertBool "GraphML Write case: without explicit id attribute
         mconcat exp_nodes,
         mconcat exp_edges,
         "  </graph>\n",
-        "</graphml>\n"
+        "</graphml>"
       ]
